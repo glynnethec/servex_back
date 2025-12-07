@@ -1,0 +1,41 @@
+# Entorno virtual
+venv/
+
+# Archivos de configuración de entorno
+.env
+.env.local
+.env.*.local
+
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de logs
+*.log
+
+# Base de datos local
+*.sqlite3
+
+# Archivos de caché de pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Archivos de distribución
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de IDE
+.vscode/
+.idea/
+
+# Otros archivos temporales
+*.swp
+*.swo
+*.tmp
