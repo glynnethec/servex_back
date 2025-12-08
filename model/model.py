@@ -31,7 +31,6 @@ def fuzzy_ratio(a: str, b: str) -> float:
 # ==================================================
 # 0.5 UTILIDADES PARA INDEX DE PRODUCTOS / CATEGORÍAS
 # ==================================================
-# Categorías más especializadas
 CATEGORIAS = {
     "tables": [
         "table", "mesa", "worktable", "work station", "lab table",
@@ -93,7 +92,6 @@ CATEGORIAS = {
     ]
 }
 
-# Materiales de madera más especializados
 MATERIALES_MADERA = [
     "oak", "veneer", "hardwood", "maple", "birch", "wood",
     "solid hardwood", "oak veneer", "maple bb", "maple block",
@@ -187,7 +185,7 @@ def iniciar_conversacion(user_id: str, mensaje: str) -> State:
     return state
 
 # ==================================================
-# 4. NODE 1 — CARGAR CATÁLOGO (y construir índice)
+# 4. NODE 1 — CARGAR CATÁLOGO
 # ==================================================
 def load_catalog(state: State) -> State:
     rows = CATALOGO.to_dict(orient="records")
@@ -211,7 +209,7 @@ def load_catalog(state: State) -> State:
     return state
 
 # ==================================================
-# 5. NODE 2 — PRODUCT SELECTOR
+# 5. PRODUCT SELECTOR
 # ==================================================
 def product_selector(state: State) -> State:
     pregunta_raw = state["mensaje"] or ""
@@ -327,17 +325,10 @@ def product_selector(state: State) -> State:
     return state
 
 # ==================================================
-# 6. NODE 3 — ASESOR IA
-# ==================================================
-# ==================================================
-# 6. NODE 3 — ASESOR IA
+# 6. ASESOR IA
 # ==================================================
 def advisor_agent(state: State) -> State:
     state["_respuestas_count"] = state.get("_respuestas_count", 0) + 1
-    # ✅ Se eliminó el reinicio automático de productos cada 6 respuestas
-    # if state["_respuestas_count"] > 6:
-    #     state["productos_filtrados"] = []
-    #     state["_respuestas_count"] = 1
 
     productos = state["productos_filtrados"]
     mensaje = state["mensaje"]
@@ -359,36 +350,13 @@ Producto:
     resumen = "\n".join(resumen_lines) if resumen_lines else "No hay productos filtrados."
 
     prompt = f"""Actúas como un asesor especializado en los productos del catálogo de Diversified Spaces. 
-Tu tono es humano, claro y centrado en ayudar al usuario a entender los productos y a
-compararlos según lo que necesite, sin sonar rígido ni mecánico.
+Tu tono es humano, claro y centrado en ayudar al usuario.
 
-Toda la información que usas proviene únicamente del catálogo centralizado.  
-Puedes describir, contextualizar, relacionar y orientar, pero siempre con base en lo que 
-está explícitamente registrado en los datos.
-
-Tu estilo:
-- Hablas con naturalidad, como alguien que ya viene conversando con el usuario.
-- Das explicaciones prácticas y útiles basándote estrictamente en el catálogo.
-- Si el usuario busca algo específico, le ayudas a filtrar, comparar o identificar productos.
-- Si falta información, lo dices sin problema: por ejemplo: “Ese dato no aparece en el catálogo”.
-- No vendes; acompañas el análisis. Tu rol es claridad, no persuasión.
-
-Lo que SÍ puedes hacer:
-- Organizar y explicar la información tal cual aparece en el CSV.
-- Señalar diferencias o similitudes entre productos, siempre basándote en los datos.
-- Guiar al usuario con preguntas cuando sea útil para aclarar lo que necesita.
-
-Lo que NO puedes hacer:
-1. No puedes inventar ni asumir características que no estén literalmente en el catálogo.
-2. No puedes inferir medidas, materiales, capacidades, ni usos si no aparecen explícitos.
-3. No extrapoles ni agregues contexto externo.
-
-Tu respuesta se genera en función de la pregunta del usuario:
+Lo que el usuario preguntó:
 → "{mensaje}"
 
 CATÁLOGO DISPONIBLE:
 {resumen}
-
 """
 
     resp = llm.invoke(prompt)
@@ -412,11 +380,20 @@ workflow.add_edge("advisor", END)
 workflow_app = workflow.compile()
 
 # ==================================================
-# 8. FUNCIÓN PARA EJECUTAR POR USUARIO / SESIÓN
+# 8. MEMORIA REAL ENTRE MENSAJES
 # ==================================================
-def ejecutar_workflow(user_id: str, mensaje: str) -> str:
-    state = iniciar_conversacion(user_id, mensaje)
-    state = workflow_app.run(state)
-    return state["respuesta"]
+SESSIONS: Dict[str, State] = {}
 
-print("Workflow cargado con memoria aislada por conversación y reinicio cada 6 respuestas.")
+def ejecutar_workflow(user_id: str, mensaje: str) -> str:
+    # Recuperar estado existente o iniciar uno nuevo
+    if user_id not in SESSIONS:
+        SESSIONS[user_id] = iniciar_conversacion(user_id, mensaje)
+    else:
+        SESSIONS[user_id]["mensaje"] = mensaje
+
+    # Ejecutar workflow con memoria persistente
+    SESSIONS[user_id] = workflow_app.run(SESSIONS[user_id])
+    return SESSIONS[user_id]["respuesta"]
+
+
+print("Workflow cargado con MEMORIA REAL por conversación.")
