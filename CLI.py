@@ -1,8 +1,13 @@
-from model.model import app
+# Nuevo CLI.py (Usa la función con gestión de memoria)
+# Ya no necesitas importar 'app' ni usar 'estado_inicial' manualmente
+# Si la función está definida así: def ejecutar_workflow(user_id: str, mensaje: str) -> str:
+from model.model import ejecutar_workflow
 
 def run_cli():
     print("\n=== CLI del Asesor de Mobiliario Educativo ===")
     print("Escribe tu pregunta o 'salir' para terminar.\n")
+
+    user_id = "cli_user" # ID de usuario fijo para la CLI
 
     while True:
         pregunta = input("Tu pregunta: ")
@@ -11,17 +16,11 @@ def run_cli():
             print("Saliendo del asesor. ¡Hasta luego!")
             break
 
-        estado_inicial = {
-            "user_id": "cli_user",
-            "mensaje": pregunta,
-            "catalogo": [],
-            "productos_filtrados": [],
-            "respuesta": ""
-        }
+        # Llama a la función que ejecuta todo el workflow, incluyendo la memoria (SESSIONS)
+        respuesta = ejecutar_workflow(user_id, pregunta) 
 
-        resultado = app.invoke(estado_inicial)
         print("\n--- Respuesta del asesor ---")
-        print(resultado["respuesta"])
+        print(respuesta)
         print("\n")
 
 

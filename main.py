@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from model.model import workflow_app
+# 💡 IMPORTANTE: Asegúrate de que 'iniciar_conversacion' esté en tu model.py
+#                y que lo exporte junto con 'workflow_app'
+from model.model import workflow_app, iniciar_conversacion 
 import uvicorn
+import copy # Importar para manejar la copia del estado de manera segura
 
 app = FastAPI(
     title="API Asesor de Mobiliario Educativo",
@@ -11,7 +14,7 @@ app = FastAPI(
 )
 
 # ----------------------------
-# Habilitar CORS
+# Habilitar CORS (Sin cambios)
 # ----------------------------
 origins = [
     "http://localhost:3000",
@@ -28,12 +31,12 @@ app.add_middleware(
 )
 
 # ----------------------------
-# MEMORY PERSISTENTE EN RAM
+# MEMORY PERSISTENTE EN RAM (Sin cambios)
 # ----------------------------
-memory_store = {}  # <- AQUI SE GUARDA LA MEMORIA POR user_id
+memory_store = {}  # <- AQUI SE GUARDA LA MEMORIA COMPLETA (incluyendo el objeto LangChain Memory)
 
 # ----------------------------
-# Modelo para recibir consulta
+# Modelo para recibir consulta (Sin cambios)
 # ----------------------------
 class Consulta(BaseModel):
     user_id: str = "frontend_user"
@@ -42,26 +45,26 @@ class Consulta(BaseModel):
 @app.post("/asesor")
 async def asesor_endpoint(data: Consulta):
 
-    # Si el usuario NO tiene memoria, se crea solo una vez
+    # 1. Recuperar o Inicializar el estado (CORREGIDO)
     if data.user_id not in memory_store:
-        memory_store[data.user_id] = {
-            "user_id": data.user_id,
-            "mensaje": "",
-            "catalogo": [],
-            "productos_filtrados": [],
-            "respuesta": ""
-        }
+        # 💡 Si el usuario es nuevo, usamos 'iniciar_conversacion' para crear
+        #    el estado **COMPLETO**, incluyendo el objeto 'memoria'.
+        estado_prev = iniciar_conversacion(data.user_id, data.mensaje)
+    else:
+        # 💡 Si ya existe, recuperamos el estado previo.
+        #    Usamos copy.copy() para trabajar con una copia superficial y evitar 
+        #    problemas si el invoke modificara el objeto antes de guardarlo.
+        estado_prev = copy.copy(memory_store[data.user_id])
+        
+        # 2. Se actualiza SOLO el mensaje
+        estado_prev["mensaje"] = data.mensaje
 
-    # Recuperamos su estado previo
-    estado_prev = memory_store[data.user_id]
-
-    # Se actualiza SOLO el mensaje
-    estado_prev["mensaje"] = data.mensaje
-
-    # Se manda al workflow, conservando el resto del estado previo
+    # 3. Se manda al workflow
+    # El estado_prev ahora contiene el objeto de LangChain Memory,
+    # asegurando que la memoria se mantenga.
     resultado = workflow_app.invoke(estado_prev)
 
-    # Guardamos memoria actualizada
+    # 4. Guardamos memoria actualizada
     memory_store[data.user_id] = resultado
 
     return {"respuesta": resultado["respuesta"]}
